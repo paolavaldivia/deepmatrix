@@ -18,13 +18,6 @@ import h5py
 
 from scipy.misc import toimage
 
-from io import BytesIO
-
-
-try:
-    from urllib  import urlopen 
-except ImportError:
-    from urllib.request import urlopen
 import xml.dom.minidom
 
 
@@ -33,13 +26,6 @@ def _get_or_create_path(path):
         os.makedirs(path)
     return path
 
-def _clamp(val, min, max):
-    if val < min:
-        return min
-    elif val > max:
-        return max
-    return val
-
 def _get_files_path(path):
     return os.path.splitext(path)[0] + '_files'
 
@@ -47,10 +33,6 @@ def _remove(path):
     os.remove(path)
     tiles_path = _get_files_path(path)
     shutil.rmtree(tiles_path)
-   
-def safe_open(path):
-    print(path)
-    return BytesIO(urlopen(path).read())
     
 #%%
 
@@ -212,26 +194,43 @@ class ImageCreator(object):
         else:
             image = image.resize((width, height), RESIZE_FILTERS[self.resize_filter])
         return image
-
+    
+    
+        
+    def _save_image(self, image, level, row, col):
+        level_dir = _get_or_create_path(os.path.join(self.image_files, str(level)))
+        im_format = self.descriptor.tile_format
+        tile_path = os.path.join(level_dir,'%s_%s.%s'%(col, row, im_format))
+        image.save(tile_path, **(self.image_options))
+    
+    def get_images(self):
+        """Returns the bitmap image at the given level."""
+        level = self.descriptor.stop_level
+        image = self.get_image_recursive(level, 0, 0)
+        while level >= 0:
+            width, height = self.descriptor.get_dimensions(level)
+            image = self._resize_image(image, width, height)
+            self._save_image(image, level, 0, 0)
+            level -= 1
+        
         
     #TODO: from recursive to iterative
-    def get_image(self, level, row, col):
+    def get_image_recursive(self, level, row, col):
         """Returns the bitmap image at the given level."""
         assert 0 <= level and level < self.descriptor.num_levels, 'Invalid pyramid level'
         if level < self.descriptor.stop_level: #TODO: it's easy to make this part iterative
             next_level = level+1
-            image = self.get_image(next_level, 0, 0)
+            image = self.get_image_recursive(next_level, 0, 0)
             width, height = self.descriptor.get_dimensions(level)
             image = self._resize_image(image, width, height)
             
         elif level < self.descriptor.max_levels:
             next_level = level+1
-            
             #TODO: check dimensions for handling sizes other than powers of 2
-            tl = self.get_image(next_level, row*2, col*2)
-            tr = self.get_image(next_level, row*2, col*2+1)
-            bl = self.get_image(next_level, row*2+1, col*2)
-            br = self.get_image(next_level, row*2+1, col*2+1)
+            tl = self.get_image_recursive(next_level, row*2, col*2)
+            tr = self.get_image_recursive(next_level, row*2, col*2+1)
+            bl = self.get_image_recursive(next_level, row*2+1, col*2)
+            br = self.get_image_recursive(next_level, row*2+1, col*2+1)
             
             n_width, n_height = self.tile_size*2, self.tile_size*2 #self.descriptor.get_dimensions(next_level)
             new_im = PIL.Image.new(self.image_mode, (n_width, n_height)) 
@@ -242,7 +241,7 @@ class ImageCreator(object):
                     
             width, height = self.tile_size, self.tile_size #self.descriptor.get_dimensions(level)
             image = self._resize_image(new_im, width, height)
-        else:
+        else: # build tiles for chunks             
             col_from, row_from, col_to, row_to = self.descriptor.get_tile_bounds(level, col, row)
             data = self.dataset[row_from:row_to, col_from:col_to]
             if self.data_op:
@@ -251,10 +250,7 @@ class ImageCreator(object):
                             cmin=self.data_extent[0], cmax=self.data_extent[1],
                             mode=self.image_mode)
                 
-        level_dir = _get_or_create_path(os.path.join(self.image_files, str(level)))
-        im_format = self.descriptor.tile_format
-        tile_path = os.path.join(level_dir,'%s_%s.%s'%(col, row, im_format))
-        image.save(tile_path, **(self.image_options))
+        self._save_image(image, level, row, col)
         
         return image
             
@@ -287,7 +283,7 @@ class ImageCreator(object):
         self.image_files = _get_or_create_path(_get_files_path(destination))
         
         level = 0
-        self.get_image(level, 0, 0)
+        self.get_images()
 
         file.close()
         # Create descriptor

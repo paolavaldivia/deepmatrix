@@ -29,28 +29,30 @@ def barabasi_albert(A, number_of_nodes=1000, initial=5, average_degree=3):
                 nodes.append(ni)
                 curr_deg += 1
             j += 1
-            
 
-N = 2048
-ch_nrows = 128
-ch_ncols = 128
 
-compression_filters = ["gzip", "lzf"]
-compression = compression_filters[0]
-shuffle_filter = [True, False]
-shuffle = shuffle_filter[1]
+def create_network(file_name, size, ch_size, compression, shuffle):
+    file = h5py.File(file_name, "w")
+    dset = file.create_dataset("adjacency", (size, size), 
+                            chunks=(ch_size, ch_size),
+                            fillvalue=0,
+                            compression=compression,
+                            shuffle=shuffle)
+    
+    st = time.time()
+    barabasi_albert(dset, number_of_nodes=size)
+    print('{:.2f}s'.format(time.time()-st))
+    file.close()
 
-file_name = "network_{}_{}-{}.hdf5".format(N, ch_nrows, ch_ncols)
-
-file = h5py.File(file_name, "w")
-dset = file.create_dataset("adjacency", (N, N), 
-                        chunks=(ch_nrows, ch_ncols),
-                        fillvalue=0,
-                        compression=compression,
-                        shuffle=shuffle)
-
-st = time.time()
-barabasi_albert(dset, number_of_nodes=N)
-print('{:.2f}s'.format(time.time()-st))
-
-file.close()
+if __name__ == '__main__':
+    size = 8192
+    ch_size = 128
+    
+    file_name = "network_{}_{}.hdf5".format(size, ch_size)
+    
+    compression_filters = ["gzip", "lzf"]
+    shuffle_filter = [True, False]
+    
+    compression = compression_filters[0]
+    shuffle = shuffle_filter[1]
+    create_network(file_name, size, ch_size, compression, shuffle)
