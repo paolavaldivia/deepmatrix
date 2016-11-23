@@ -14,7 +14,7 @@ def _write_html(dzi_file, html_file='index.html'):
     template = Template("""
     <div id="navigatorDiv" style="width: 200px; height: 200px; border: 2px"></div>
     <div id="openseadragon1" style="width: 200px; height: 200px;"></div>
-    <script src="/openseadragon/openseadragon.js"></script>
+    <script src="/openseadragon/openseadragon.min.js"></script>
     <script type="text/javascript">
         var viewer = OpenSeadragon({
             id: "openseadragon1",
@@ -36,7 +36,7 @@ def _write_html(dzi_file, html_file='index.html'):
 def invert(data):
     return 1-data
         
-SOURCE = "data/network_2048_128-128.hdf5"
+SOURCE = "data/network_8192_128.hdf5"
 DZI_FILE = "data/network.dzi"
 
 DATASET = 'adjacency'
