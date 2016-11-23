@@ -12,6 +12,7 @@ Based on https://github.com/openzoom/deepzoom.py
 import math
 import os
 import PIL.Image
+import PIL.ImageOps
 import shutil
 import h5py
 
@@ -244,10 +245,12 @@ class ImageCreator(object):
         else:
             col_from, row_from, col_to, row_to = self.descriptor.get_tile_bounds(level, col, row)
             data = self.dataset[row_from:row_to, col_from:col_to]
+            if self.data_op:
+                data = self.data_op(data)
             image = toimage(data, 
                             cmin=self.data_extent[0], cmax=self.data_extent[1],
                             mode=self.image_mode)
-        
+                
         level_dir = _get_or_create_path(os.path.join(self.image_files, str(level)))
         im_format = self.descriptor.tile_format
         tile_path = os.path.join(level_dir,'%s_%s.%s'%(col, row, im_format))
@@ -263,11 +266,12 @@ class ImageCreator(object):
             for row in range(rows):
                 yield (column, row)
 
-    def create(self, source, dataset, destination, data_extent=[0, 255]):
+    def create(self, source, dataset, destination, data_extent=[0, 255], data_op=None):
         """Creates Deep Zoom image from source file and saves it to destination."""
         file = h5py.File(source, "r")
         self.dataset = file[dataset]
         self.data_extent = data_extent
+        self.data_op = data_op
 
         width, height = self.dataset.shape
         self.chunk_width, self.chunk_height = self.dataset.chunks
