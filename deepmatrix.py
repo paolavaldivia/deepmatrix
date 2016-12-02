@@ -33,6 +33,9 @@ def _remove(path):
     os.remove(path)
     tiles_path = _get_files_path(path)
     shutil.rmtree(tiles_path)
+   
+def pos2ind(pos):
+    return pos[1]+pos[2]*2
     
 #%%
 
@@ -49,6 +52,7 @@ RESIZE_FILTERS = {
     'bicubic': PIL.Image.BICUBIC,
     'nearest': PIL.Image.NEAREST,
     'antialias': PIL.Image.ANTIALIAS,
+    'lanczos': PIL.Image.LANCZOS
     }
 
 #TODO: tiff
@@ -68,17 +72,6 @@ class DeepZoomImageDescriptor(object):
         self.tile_format = tile_format
         self._num_levels = None
         self._stop_level = None
-
-    def open(self, source):
-        """Intialize descriptor from an existing descriptor file."""
-        doc = xml.dom.minidom.parse(safe_open(source))
-        image = doc.getElementsByTagName('Image')[0]
-        size = doc.getElementsByTagName('Size')[0]
-        self.width = int(size.getAttribute('Width'))
-        self.height = int(size.getAttribute('Height'))
-        self.tile_size = int(image.getAttribute('TileSize'))
-        self.tile_overlap = int(image.getAttribute('Overlap'))
-        self.tile_format = image.getAttribute('Format')
 
     def save(self, destination):
         """Save descriptor file."""
@@ -120,7 +113,7 @@ class DeepZoomImageDescriptor(object):
     def stop_level(self):
         """Number of levels in the pyramid."""
         if self._stop_level is None:
-            self._stop_level = int(math.ceil(math.log(self.tile_size, 2)))
+            self._stop_level = int(math.ceil(math.log(self.tile_size, 2)))-1
         return self._stop_level
 
     def get_scale(self, level):
@@ -144,27 +137,23 @@ class DeepZoomImageDescriptor(object):
         return (int(math.ceil(float(w) / self.tile_size)),
                 int(math.ceil(float(h) / self.tile_size)))
 
-    def get_tile_bounds(self, level, column, row):
-        """Bounding box of the tile (x1, y1, x2, y2)"""
-        assert 0 <= level and level < self.num_levels, 'Invalid pyramid level'
-        offset_x = 0 if column == 0 else self.tile_overlap
-        offset_y = 0 if row == 0 else self.tile_overlap
-        x = (column * self.tile_size) - offset_x
-        y = (row * self.tile_size) - offset_y
-        level_width, level_height = self.get_dimensions(level)
-        w = self.tile_size + (1 if column == 0 else 2) * self.tile_overlap
-        h = self.tile_size + (1 if row == 0 else 2) * self.tile_overlap
-        w = min(w, level_width  - x)
-        h = min(h, level_height - y)
-        return (x, y, x + w, y + h)
-        
     def get_tile_dimensions(self, level, column, row):
         """Bounding box of the tile (x1, y1, x2, y2)"""
         assert 0 <= level and level < self.num_levels, 'Invalid pyramid level'
-        offset_x = 0 if column == 0 else self.tile_overlap
-        offset_y = 0 if row == 0 else self.tile_overlap
-        x = (column * self.tile_size) - offset_x
-        y = (row * self.tile_size) - offset_y
+        x = (column * self.tile_size) 
+        y = (row * self.tile_size)
+        level_width, level_height = self.get_dimensions(level)
+        w = self.tile_size
+        h = self.tile_size 
+        w = min(w, level_width  - x)
+        h = min(h, level_height - y)
+        return w, h
+        
+    def get_tile_bounds(self, level, column, row):
+        """Bounding box of the tile (x1, y1, x2, y2)"""
+        assert 0 <= level and level < self.num_levels, 'Invalid pyramid level'
+        x = (column * self.tile_size) 
+        y = (row * self.tile_size)
         level_width, level_height = self.get_dimensions(level)
         w = self.tile_size + (1 if column == 0 else 2) * self.tile_overlap
         h = self.tile_size + (1 if row == 0 else 2) * self.tile_overlap
@@ -194,31 +183,81 @@ class ImageCreator(object):
         else:
             image = image.resize((width, height), RESIZE_FILTERS[self.resize_filter])
         return image
-    
-    
         
-    def _save_image(self, image, level, row, col):
+    def _get_tile_path(self, level, row, col):
         level_dir = _get_or_create_path(os.path.join(self.image_files, str(level)))
         im_format = self.descriptor.tile_format
         tile_path = os.path.join(level_dir,'%s_%s.%s'%(col, row, im_format))
-        image.save(tile_path, **(self.image_options))
-    
-    def get_images(self):
-        """Returns the bitmap image at the given level."""
+        return tile_path
+        
+    def _save_image(self, image, level, row, col):
+        tile_path = self._get_tile_path(level, row, col)
+        image.save(tile_path, **(self.image_options))    
+            
+    def get_full_res_image(self, level, col, row):
+        col_from, row_from, col_to, row_to = self.descriptor.get_tile_bounds(level, col, row)
+        if col_from>=col_to or row_from >= row_to:
+            return None
+        data = self.dataset[row_from:row_to, col_from:col_to]
+        if self.data_op:
+            data = self.data_op(data)
+        image = toimage(data, 
+                        cmin=self.data_extent[0], cmax=self.data_extent[1],
+                        mode=self.image_mode)
+        return image
+        
+    def load_image(self, level, col, row):
+        tile_path = self._get_tile_path(level, row, col)
+        if os.path.exists(tile_path):
+            image = PIL.Image.open(tile_path)
+            return image
+        return None
+            
+    def tiles(self):
+        """Iterator for all tiles (post-order traversal). Returns (level, column, row) of a tile."""
+        stack = []
+        last = None
+        
+        max_level = self.descriptor.max_levels
         level = self.descriptor.stop_level
-        image = self.get_image_recursive(level, 0, 0)
+        node = (level, 0, 0)
+        
+        while len(stack)>0 or node[0]<=max_level:
+            if node and node[0]<=max_level:
+                stack.append(node)
+                l, c, r = node
+                node = (l+1, c*2, r*2) # tl
+            else:
+                peek = stack[-1]
+                l, c, r = peek
+                peek_tr = l+1, c*2+1, r*2
+                if peek_tr[0]<=max_level and  pos2ind(peek_tr)>pos2ind(last):
+                    node = peek_tr
+                else:
+                    peek_bl = l+1, c*2, r*2+1
+                    if peek_bl[0]<=max_level and  pos2ind(peek_bl)>pos2ind(last):
+                        node = peek_bl
+                    else:
+                        peek_br = l+1, c*2+1, r*2+1
+                        if peek_br[0]<=max_level and  pos2ind(peek_br)>pos2ind(last):
+                            node = peek_br
+                        else:
+                            yield peek
+                            last = stack.pop()
         while level >= 0:
-            width, height = self.descriptor.get_dimensions(level)
-            image = self._resize_image(image, width, height)
-            self._save_image(image, level, 0, 0)
+            yield (level, 0, 0)
             level -= 1
-        
-        
+            
     #TODO: from recursive to iterative
     def get_image_recursive(self, level, row, col):
-        """Returns the bitmap image at the given level."""
+        """Returns and saves the bitmap image at the given level."""
         assert 0 <= level and level < self.descriptor.num_levels, 'Invalid pyramid level'
-        if level < self.descriptor.stop_level: #TODO: it's easy to make this part iterative
+        
+        width, height = self.descriptor.get_tile_dimensions(level, col, row) # self.descriptor.get_dimensions(level)
+        if width<=0 or height<=0:
+            return None
+        
+        if level < self.descriptor.stop_level:
             next_level = level+1
             image = self.get_image_recursive(next_level, 0, 0)
             width, height = self.descriptor.get_dimensions(level)
@@ -231,65 +270,84 @@ class ImageCreator(object):
             tr = self.get_image_recursive(next_level, row*2, col*2+1)
             bl = self.get_image_recursive(next_level, row*2+1, col*2)
             br = self.get_image_recursive(next_level, row*2+1, col*2+1)
-            
-            n_width, n_height = self.tile_size*2, self.tile_size*2 #self.descriptor.get_dimensions(next_level)
-            new_im = PIL.Image.new(self.image_mode, (n_width, n_height)) 
-            new_im.paste(tl, (0, 0))
-            new_im.paste(tr, (self.tile_size, 0))
-            new_im.paste(bl, (0, self.tile_size))
-            new_im.paste(br, (self.tile_size, self.tile_size))
-                    
-            width, height = self.tile_size, self.tile_size #self.descriptor.get_dimensions(level)
-            image = self._resize_image(new_im, width, height)
-        else: # build tiles for chunks             
-            col_from, row_from, col_to, row_to = self.descriptor.get_tile_bounds(level, col, row)
-            data = self.dataset[row_from:row_to, col_from:col_to]
-            if self.data_op:
-                data = self.data_op(data)
-            image = toimage(data, 
-                            cmin=self.data_extent[0], cmax=self.data_extent[1],
-                            mode=self.image_mode)
-                
-        self._save_image(image, level, row, col)
-        
-        return image
-            
-    
-    def tiles(self, level):
-        """Iterator for all tiles in the given level. Returns (column, row) of a tile."""
-        columns, rows = self.descriptor.get_num_tiles(level)
-        for column in range(columns):
-            for row in range(rows):
-                yield (column, row)
+            n_width, n_height = width*2, height*2
 
-    def create(self, source, dataset, destination, data_extent=[0, 255], data_op=None):
+            new_im = PIL.Image.new(self.image_mode, (n_width, n_height)) 
+            if tl: new_im.paste(tl, (0, 0))
+            if tr: new_im.paste(tr, (self.tile_size, 0))
+            if bl: new_im.paste(bl, (0, self.tile_size))
+            if br: new_im.paste(br, (self.tile_size, self.tile_size))
+                    
+            image = self._resize_image(new_im, width, height)
+        else: # build tiles for chunks      
+            image = self.full_res_image(level, col, row)
+
+        self._save_image(image, level, row, col)
+        return image
+                            
+    def get_coarsened_image(self, level, col, row):
+        width, height = self.descriptor.get_tile_dimensions(level, col, row) # self.descriptor.get_dimensions(level)
+        if width<=0 or height<=0:
+            return None
+
+        next_level = level+1
+        tl = self.load_image(next_level, col*2, row*2)
+        tr = self.load_image(next_level, col*2+1, row*2)
+        bl = self.load_image(next_level, col*2, row*2+1)
+        br = self.load_image(next_level, col*2+1, row*2+1)
+        n_width, n_height = width*2, height*2
+
+        new_im = PIL.Image.new(self.image_mode, (n_width, n_height)) 
+        if tl: new_im.paste(tl, (0, 0))
+        if tr: new_im.paste(tr, (self.tile_size, 0))
+        if bl: new_im.paste(bl, (0, self.tile_size))
+        if br: new_im.paste(br, (self.tile_size, self.tile_size))
+        
+        image = self._resize_image(new_im, width, height)
+
+        return image
+        
+    def get_image(self, level, col, row):
+        image = None
+        if level == self.descriptor.max_levels:
+            image = self.get_full_res_image(level, col, row) 
+        elif level >= self.descriptor.stop_level:
+            image = self.get_coarsened_image(level, col, row)                       
+        return image                    
+                
+
+    def create(self, source, dataset, destination, data_extent=[0, 255], data_op=None, image_pal=None):
         """Creates Deep Zoom image from source file and saves it to destination."""
         file = h5py.File(source, "r")
         self.dataset = file[dataset]
         self.data_extent = data_extent
         self.data_op = data_op
+        self.image_pal = image_pal
 
-        width, height = self.dataset.shape
+        height, width = self.dataset.shape
+        print('ds', width, height)
         self.chunk_width, self.chunk_height = self.dataset.chunks
         self.descriptor = DeepZoomImageDescriptor(width=width,
                                                   height=height,
                                                   tile_size=self.tile_size,
                                                   tile_overlap=0,
                                                   tile_format=self.tile_format)                                          
-        print('opened ', source)
-        print('  size: ', width, ' x ', height)
-        print('  tile_size: ', self.tile_size)
+        self.image_files = _get_or_create_path(_get_files_path(destination))        
         
-        self.image_files = _get_or_create_path(_get_files_path(destination))
-        
-        level = 0
-        self.get_images()
+        for level, col, row in self.tiles():
+            if level > self.descriptor.stop_level:
+                image = self.get_image(level, col, row)
+                if image: self._save_image(image, level, row, col)
+            else:
+                width, height = self.descriptor.get_dimensions(level)
+                image = self._resize_image(image, width, height)
+                self._save_image(image, level, 0, 0)
+                
 
         file.close()
         # Create descriptor
         self.descriptor.save(destination)
      
-#TODO: clean unnecesary code
 
 #%%
 if __name__ == '__main__':

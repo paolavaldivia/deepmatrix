@@ -6,10 +6,12 @@ Created on Wed Nov 23 16:53:09 2016
 @author: pao
 """
 import numpy as np
+from scipy import sparse
 import h5py
 import time
 
-def barabasi_albert(A, number_of_nodes=1000, initial=5, average_degree=3):
+def barabasi_albert(A, initial=5, average_degree=3):
+    number_of_nodes = A.shape[0] # assuming A is square
     A[0:initial, 0:initial] = 1
     for i in range(initial):
         A[i,i] = 0
@@ -30,29 +32,43 @@ def barabasi_albert(A, number_of_nodes=1000, initial=5, average_degree=3):
                 curr_deg += 1
             j += 1
 
+def random_network(A):
+    nr, nc = A.shape
+    ch_r, ch_c = A.chunks
+#    ch_size = ch_r*ch_c
+    for r in range(0, nr, ch_r):
+        for c in range(0, nc, ch_c):        
+            r_f, r_t = r, r+ch_r
+            c_f, c_t = c, c+ch_c
+#            print(r_f, r_t, c_f, c_t)
+            A[r_f:r_t,c_f:c_t] = sparse.rand(ch_r, ch_c).toarray()
 
-def create_network(file_name, size, ch_size, compression, shuffle):
+
+def create_network(file_name, size, ch_len, compression, shuffle, method=barabasi_albert):
     file = h5py.File(file_name, "w")
     dset = file.create_dataset("adjacency", (size, size), 
-                            chunks=(ch_size, ch_size),
+                            chunks=(ch_len, ch_len),
                             fillvalue=0,
                             compression=compression,
                             shuffle=shuffle)
     
     st = time.time()
-    barabasi_albert(dset, number_of_nodes=size)
+    method(dset)
     print('{:.2f}s'.format(time.time()-st))
     file.close()
-
-if __name__ == '__main__':
-    size = 8192
-    ch_size = 128
     
-    file_name = "network_{}_{}.hdf5".format(size, ch_size)
+
+    
+if __name__ == '__main__':
+    size = 4000
+    ch_len = 200
+    
+    file_name = "network_{}_{}.hdf5".format(size, ch_len)
+    file_name = "random.hdf5"
     
     compression_filters = ["gzip", "lzf"]
     shuffle_filter = [True, False]
     
     compression = compression_filters[0]
     shuffle = shuffle_filter[1]
-    create_network(file_name, size, ch_size, compression, shuffle)
+    create_network(file_name, size, ch_len, compression, shuffle, random_network)
