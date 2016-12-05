@@ -12,7 +12,7 @@ import deepmatrix
 from string import Template
 
 def _write_html(dzi_file, html_file='index.html'):
-    with open('demo/index.template', 'r') as f_template:
+    with open('demo/template.html', 'r') as f_template:
         template = Template(f_template.read())
         with open(html_file, 'w') as f:
             f.write(template.substitute(dzi_file=dzi_file))
