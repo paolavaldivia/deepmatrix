@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="container">
+    <div>
+        <div id="navigatorDiv"></div>
+        <div id="toolbarDiv"></div>
+    </div>
+    <div><div id="openseadragon1"></div></div>
+</div>
+
+<script src="/openseadragon/openseadragon.min.js"></script>
+<script type="text/javascript">
+    var viewer = OpenSeadragon({
+        id: "openseadragon1",
+        prefixUrl: "/openseadragon/images/",
+        tileSources: "$dzi_file",
+        showNavigator: true,
+        navigatorId: "navigatorDiv",
+        toolbar: "toolbarDiv",
+        maxZoomPixelRatio: 20,
+        constrainDuringPan: true
+    });
+</script>
+ <script src="script.js"></script>
+</body>
+</html>

@@ -1,12 +1,10 @@
 // Assuming we have an OpenSeadragon Viewer called "viewer", we can catch the clicks 
 // with addHandler like so:
 
-viewer.constrainDuringPan = true;
 viewer.drawer.context.imageSmoothingEnabled = false;
 viewer.drawer.context.mozImageSmoothingEnabled = false;
 viewer.drawer.context.webkitImageSmoothingEnabled = false;
-viewer.showNavigator = true;
-viewer.maxZoomPixelRatio = 20;
+viewer.constrainDuringPan = true;
 
 viewer.addHandler('open', function() {
 
@@ -24,7 +22,6 @@ viewer.addHandler('open', function() {
             }
         });  
 
-        tracker.setTracking(true);  
-
+        tracker.setTracking(true);
         // viewer.addHandler('animation', updateZoom);   
-    });
+});

@@ -12,32 +12,10 @@ import deepmatrix
 from string import Template
 
 def _write_html(dzi_file, html_file='index.html'):
-    template = Template("""
-<!DOCTYPE html>
-<html>
-<head>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div>
-<div id="navigatorDiv"></div>
-<div id="toolbarDiv"></div>
-</div>
-<div><div id="openseadragon1"></div></div>
-<script src="/openseadragon/openseadragon.min.js"></script>
-<script type="text/javascript">
-    var viewer = OpenSeadragon({
-        id: "openseadragon1",
-        prefixUrl: "/openseadragon/images/",
-        tileSources: "$dzi_file"
-    });
-</script>
-</body>
-</html>
-    """)
-    
-    with open(html_file, 'w') as f:
-        f.write(template.substitute(dzi_file=dzi_file))
+    with open('demo/index.template', 'r') as f_template:
+        template = Template(f_template.read())
+        with open(html_file, 'w') as f:
+            f.write(template.substitute(dzi_file=dzi_file))
 
 def invert(data):
     return 1-data

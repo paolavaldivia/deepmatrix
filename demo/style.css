@@ -1,21 +1,25 @@
- #navigatorDiv{
- 	position: fixed !important;
- 	top: 0 !important;
-    left: 0 !important;
- 	width: 100px; 
- 	height: 100px; 
- }
+#container{
+	position: absolute;
+}
 
-/*  #toolbarDiv{
- 	position: fixed !important;
- 	top: 0 !important;
-    left: 130px !important;
+#navigatorDiv{
+ 	width: 100px;
+	height: 100px;
+	float: left;
+	border: 2px solid !important;
+	border-color: darkolivegreen !important;
  }
-*/
+#navigatorDiv-displayregion{
+	border-color: #9d9d9d !important;
+}
+
+#toolbarDiv{
+	margin-left: 110px;
+	width: auto;
+}
+
  #openseadragon1{
- 	position: fixed !important;
- 	top: 120 !important;
-    left: 105 !important;
- 	width: 800px; 
+	 margin-left: 100px;
+ 	width: 800px;
  	height: 600px;
  }
