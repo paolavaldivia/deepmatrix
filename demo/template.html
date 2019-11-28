@@ -15,11 +15,11 @@
     <div><div id="openseadragon1"></div></div>
 </div>
 
-<script src="/openseadragon/openseadragon.min.js"></script>
+<script src="node_modules/openseadragon/build/openseadragon/openseadragon.min.js"></script>
 <script type="text/javascript">
     var viewer = OpenSeadragon({
         id: "openseadragon1",
-        prefixUrl: "/openseadragon/images/",
+        prefixUrl: "node_modules/openseadragon/build/openseadragon/images/",
         tileSources: "$dzi_file",
         showNavigator: true,
         navigatorId: "navigatorDiv",

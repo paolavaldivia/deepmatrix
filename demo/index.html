@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deep Zoom Matrix</title>
+    <script src="https://code.jquery.com/jquery-2.1.0.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="container">
+    <div>
+        <div id="navigatorDiv"></div>
+        <div id="toolbarDiv"></div>
+    </div>
+    <div><div id="openseadragon1"></div></div>
+</div>
+
+<script src="node_modules/openseadragon/build/openseadragon/openseadragon.min.js"></script>
+<script type="text/javascript">
+    var viewer = OpenSeadragon({
+        id: "openseadragon1",
+        prefixUrl: "node_modules/openseadragon/build/openseadragon/images/",
+        tileSources: "../data/random.dzi",
+        showNavigator: true,
+        navigatorId: "navigatorDiv",
+        toolbar: "toolbarDiv",
+        visibilityRatio: 1.0,
+        maxZoomPixelRatio: 20,
+        constrainDuringPan: true
+    });
+</script>
+<script src="event-manager.js"></script>
+<script src="tip.js"></script>
+<script src="util.js"></script>
+ <script src="main.js"></script>
+</body>
+</html>

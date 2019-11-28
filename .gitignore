@@ -8,3 +8,4 @@ __pycache__/
 
 #WebStorm
 .idea
+/demo/package-lock.json
