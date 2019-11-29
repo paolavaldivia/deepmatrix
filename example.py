@@ -29,11 +29,11 @@ DATASET = 'adjacency'
 IMAGE_OPTIONS = {'transparency': 0, 'compress_level': 0}  # {'quality': 100}
 HTML_FILE = "demo/index.html"
 
-creator = deepmatrix.ImageCreator(tile_size=512, tile_format="gif",
-                                  image_mode='1', image_options=IMAGE_OPTIONS,
+creator = deepmatrix.ImageCreator(tile_size=512, tile_format="png",
+                                  image_mode='L', image_options=IMAGE_OPTIONS,
                                   resize_filter="lanczos")
 creator.create(SOURCE, DATASET, DZI_FILE,
-               data_extent=[0, 1])
-               # data_op=invert)
+               data_extent=[0, 1],
+               data_op=invert)
 
 _write_html("../" + DZI_FILE, HTML_FILE)

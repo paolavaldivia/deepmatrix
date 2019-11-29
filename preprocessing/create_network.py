@@ -61,9 +61,13 @@ def create_network(file_name, size, ch_len, compression, shuffle, method=barabas
     file.close()
 
 
+def run(file_name, size=4096, chunk_size=512, compression='gzip', shuffle=False, method=random_network):
+    create_network(file_name, size, chunk_size, compression, shuffle, method)
+
+
 if __name__ == '__main__':
     size = 4096
-    ch_len = 512
+    chunk_size = 512
 
     # file_name = "../data/network_{}_{}.hdf5".format(size, ch_len)
     file_name = "../data/random.hdf5"
@@ -73,4 +77,5 @@ if __name__ == '__main__':
 
     compression = compression_filters[0]
     shuffle = shuffle_filter[1]
-    create_network(file_name, size, ch_len, compression, shuffle, random_network)
+
+    run(file_name, size, chunk_size, compression, shuffle, barabasi_albert)

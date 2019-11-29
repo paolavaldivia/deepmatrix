@@ -45,7 +45,7 @@ def pos2ind(pos):
 
 NS_DEEPZOOM = 'http://schemas.microsoft.com/deepzoom/2008'
 
-DEFAULT_RESIZE_FILTER = PIL.Image.ANTIALIAS
+DEFAULT_RESIZE_FILTER = 'lanczos'
 DEFAULT_IMAGE_FORMAT = 'gif'
 
 RESIZE_FILTERS = {
@@ -170,22 +170,23 @@ class DeepZoomImageDescriptor(object):
 class ImageCreator(object):
     """Creates Deep Zoom images."""
 
-    def __init__(self, tile_size=256, tile_format='gif',
+    def __init__(self, tile_size=512, tile_format='gif',
                  image_mode='1', image_options=None,
                  resize_filter=None):
         self.tile_size = int(tile_size)
         self.tile_format = tile_format
         self.image_mode = image_mode
         self.image_options = image_options
-        if not tile_format in IMAGE_FORMATS:
-            self.tile_format = DEFAULT_IMAGE_FORMAT
+        self.tile_format = tile_format
         self.resize_filter = resize_filter
 
+        if self.tile_format not in IMAGE_FORMATS:
+            self.tile_format = DEFAULT_IMAGE_FORMAT
+        if self.resize_filter not in RESIZE_FILTERS:
+            self.resize_filter = DEFAULT_RESIZE_FILTER
+
     def _resize_image(self, image, width, height):
-        if (self.resize_filter is None) or (self.resize_filter not in RESIZE_FILTERS):
-            image = image.resize((width, height), PIL.Image.ANTIALIAS)
-        else:
-            image = image.resize((width, height), RESIZE_FILTERS[self.resize_filter])
+        image = image.resize((width, height), RESIZE_FILTERS[self.resize_filter])
         return image
 
     def _get_tile_path(self, level, row, col):
@@ -332,8 +333,10 @@ class ImageCreator(object):
         self.image_pal = image_pal
 
         height, width = self.dataset.shape
-        print('ds', width, height)
         self.chunk_width, self.chunk_height = self.dataset.chunks
+
+        print('ds', width, height)
+        print('  cs', self.chunk_width, self.chunk_height)
 
         self.descriptor = DeepZoomImageDescriptor(width=width,
                                                   height=height,
@@ -347,7 +350,9 @@ class ImageCreator(object):
             # print(level, col, row, image)
             if level >= self.descriptor.stop_level:
                 image = self.get_image(level, col, row)
-                if image: self._save_image(image, level, row, col)
+                if image:
+                    self._save_image(image, level, row, col)
+                    # image.show()
             else:
                 width, height = self.descriptor.get_dimensions(level)
                 image = self._resize_image(image, width, height)
