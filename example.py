@@ -19,11 +19,11 @@ def _write_html(dzi_file, html_file='index.html'):
 
 
 def invert(data):
-    return 1 - data
+    return 8 - data
 
 
-SOURCE = "data/random.hdf5"
-DZI_FILE = "data/random.dzi"
+SOURCE = "data/angry_test.hdf5"
+DZI_FILE = "data/angry_test.dzi"
 
 DATASET = 'adjacency'
 IMAGE_OPTIONS = {'transparency': 0, 'compress_level': 0}  # {'quality': 100}
@@ -33,7 +33,7 @@ creator = deepmatrix.ImageCreator(tile_size=512, tile_format="png",
                                   image_mode='L', image_options=IMAGE_OPTIONS,
                                   resize_filter="lanczos")
 creator.create(SOURCE, DATASET, DZI_FILE,
-               data_extent=[0, 1],
-               data_op=invert)
+               data_extent=[0, 255])
+               # data_op=invert)
 
 _write_html("../" + DZI_FILE, HTML_FILE)

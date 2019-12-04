@@ -14,8 +14,10 @@ def invert(data, dmax=1):
     return dmax - data
 
 
+
 def create_deepzoom_images(source_file, dataset, dzi_file=None,
-                           image_creator_options=None, image_options=None):
+                           image_creator_options=None, image_options=None,
+                           dmax=1):
     if dzi_file is None:
         dzi_file = path.splitext(source_file)[0] + ".dzi"
 
@@ -27,10 +29,10 @@ def create_deepzoom_images(source_file, dataset, dzi_file=None,
 
     creator = deepmatrix.ImageCreator(**image_creator_options,
                                       image_options=image_options,
-                                      resize_filter="lanczos")
+                                      resize_filter="nearest")
 
     creator.create(source_file, dataset, dzi_file,
-                   data_extent=[0, 1])
+                   data_extent=[0, dmax])
     # data_op=invert)
 
 
@@ -53,11 +55,28 @@ if __name__ == '__main__':
     parser.add_argument('--mode', dest='image_mode', type=str,
                         default=IMAGE_CREATOR_OPTIONS['image_mode'],
                         help='image mode (1, L or any PIL supported mode)')
+    parser.add_argument('--dmax', dest='dmax', type=int,
+                        default=1,
+                        help='dmax')
 
     args = parser.parse_args()
 
+    print(args)
+
     image_options_ = IMAGE_OPTIONS
     image_creator_options_ = {'tile_size': args.tile_size, 'tile_format': args.tile_format, 'image_mode': args.image_mode}
+
     create_deepzoom_images(args.source, args.dataset, args.dzi_file,
                            image_creator_options=image_creator_options_,
-                           image_options=image_options_)
+                           image_options=image_options_, dmax=args.dmax)
+
+    # creator = deepmatrix.ImageCreator(tile_size=args.tile_size, tile_format=args.tile_format,
+    #                                   image_mode=args.image_mode, image_options=image_options_,
+    #                                   resize_filter="nearest")
+    #
+    # dzi_file = args.dzi_file
+    # if dzi_file is None:
+    #     dzi_file = path.splitext(args.source)[0] + ".dzi"
+    #
+    # creator.create(args.source, args.dataset, dzi_file,
+    #                data_extent=[0, 255])

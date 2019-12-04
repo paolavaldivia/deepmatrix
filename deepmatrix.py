@@ -17,7 +17,10 @@ import xml.dom.minidom
 import PIL.Image
 import PIL.ImageOps
 import h5py
-# from scipy.misc import toimage
+from scipy.misc import toimage
+import numpy as np
+
+import matplotlib.pyplot as plt
 
 
 def _get_or_create_path(path):
@@ -45,7 +48,7 @@ def pos2ind(pos):
 
 NS_DEEPZOOM = 'http://schemas.microsoft.com/deepzoom/2008'
 
-DEFAULT_RESIZE_FILTER = 'lanczos'
+DEFAULT_RESIZE_FILTER = 'nearest'
 DEFAULT_IMAGE_FORMAT = 'gif'
 
 RESIZE_FILTERS = {
@@ -67,7 +70,7 @@ IMAGE_FORMATS = {
 
 class DeepZoomImageDescriptor(object):
     def __init__(self, width=None, height=None,
-                 tile_size=256, tile_overlap=1, tile_format='jpg'):
+                 tile_size=512, tile_overlap=0, tile_format='gif'):
         self.width = width
         self.height = height
         self.tile_size = tile_size
@@ -197,7 +200,7 @@ class ImageCreator(object):
 
     def _save_image(self, image, level, row, col):
         tile_path = self._get_tile_path(level, row, col)
-        image.save(tile_path, **(self.image_options))
+        image.save(tile_path, format=self.tile_format, **(self.image_options))
 
     def get_full_res_image(self, level, col, row):
         col_from, row_from, col_to, row_to = self.descriptor.get_tile_bounds(level, col, row)
@@ -209,8 +212,24 @@ class ImageCreator(object):
         # image = toimage(data, high=1,
         #                 cmin=self.data_extent[0], cmax=self.data_extent[1],
         #                 mode=self.image_mode)
-
-        image = PIL.Image.fromarray(data, mode=self.image_mode)
+        image = PIL.Image.fromarray(data, self.image_mode)
+        # print(data)
+        # plt.imshow(data, cmap=plt.cm.Reds_r)
+        # plt.show()
+        # # from scipy import misc
+        #
+        # image.show()
+        # print(self.data_extent)
+        # print(level, col, row, image)
+        #
+        image.save('{}_{}_{}.gif'.format(level, row, col), format=self.tile_format, **(self.image_options))
+        # img = misc.imread('{}_{}_{}.gif'.format(level, row, col), mode='1')
+        #
+        # print(np.sum(img))
+        #
+        # print(np.sum(data))
+        # print(np.max(data))
+        # print(np.min(data))
         return image
 
     def load_image(self, level, col, row):
@@ -318,6 +337,7 @@ class ImageCreator(object):
         image = None
         if level == self.descriptor.max_levels:
             image = self.get_full_res_image(level, col, row)
+
         elif level >= self.descriptor.stop_level:
             image = self.get_coarsened_image(level, col, row)
         return image
@@ -345,14 +365,11 @@ class ImageCreator(object):
                                                   tile_format=self.tile_format)
         self.image_files = _get_or_create_path(_get_files_path(destination))
 
-        image = None
         for level, col, row in self.tiles():
-            # print(level, col, row, image)
             if level >= self.descriptor.stop_level:
                 image = self.get_image(level, col, row)
                 if image:
                     self._save_image(image, level, row, col)
-                    # image.show()
             else:
                 width, height = self.descriptor.get_dimensions(level)
                 image = self._resize_image(image, width, height)

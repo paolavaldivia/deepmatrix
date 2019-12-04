@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from os import path
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 import scale
 
@@ -46,14 +46,22 @@ def create_scales(pos, width=512, height=512):
 
     return scale_x, scale_y
 
+def parse_dtype(dtype):
+    if dtype == 'int':
+        return np.int32
+    if dtype == 'bool':
+        return bool
 
-def xy2hdf5(source_file, hdf5_file=None, size=1024, ch_size=512, dataset='xy',  delimiter=' ', skiprows=0):
+def xy2hdf5(source_file, hdf5_file=None, size=1024, ch_size=512, dataset='xy',
+            delimiter=' ', skiprows=0, dtype='int'):
     st = time.time()
 
     n_rows = size
     n_cols = size
     ch_rows = ch_size
     ch_cols = ch_size
+
+    dtype = parse_dtype(dtype)
 
     xy = np.loadtxt(source_file, delimiter=delimiter, skiprows=skiprows)
 
@@ -73,13 +81,16 @@ def xy2hdf5(source_file, hdf5_file=None, size=1024, ch_size=512, dataset='xy',  
                                fillvalue=0,
                                compression=compression,
                                shuffle=shuffle,
-                               dtype=np.int32)
+                               dtype=dtype)
 
     img = scatter(xy, scale_x, scale_y)
-    im_array = np.asarray(img)
-    # img.show()
+    im_array = np.asarray(img, dtype=int)
 
+    # plt.imshow(im_array, cmap=plt.cm.Reds_r)
+    # plt.show()
     h5_dataset[:] = im_array
+
+    print(np.sum(h5_dataset))
 
     file.flush()
     file.close()
@@ -108,6 +119,11 @@ if __name__ == '__main__':
                         default=0,
                         help='number of rows to skip')
 
+    parser.add_argument('--dtype', dest='dtype', type=str,
+                        default=0,
+                        help='dtype')
+
     args = parser.parse_args()
 
-    xy2hdf5(args.source, args.hdf5_file, args.size, args.ch_size, args.dataset,  args.sep, args.skip_rows)
+    xy2hdf5(args.source, args.hdf5_file, args.size, args.ch_size,
+            args.dataset,  args.sep, args.skip_rows, args.dtype)
