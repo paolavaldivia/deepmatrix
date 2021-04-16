@@ -17,7 +17,7 @@ import xml.dom.minidom
 import PIL.Image
 import PIL.ImageOps
 import h5py
-from scipy.misc import toimage
+# from scipy.misc import toimage
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -222,7 +222,8 @@ class ImageCreator(object):
         # print(self.data_extent)
         # print(level, col, row, image)
         #
-        image.save('{}_{}_{}.gif'.format(level, row, col), format=self.tile_format, **(self.image_options))
+        image.save('{}_{}_{}'.format(level, row, col), format=self.tile_format, **(self.image_options))
+
         # img = misc.imread('{}_{}_{}.gif'.format(level, row, col), mode='1')
         #
         # print(np.sum(img))
